@@ -74,6 +74,29 @@ funcs = [lambda: i for i in range(3)]
 
 All lambdas share the same `i`, which ends at `2`. Fix: `lambda i=i: i` to capture per-iteration.
 
+A lambda is an anonymous function. lambda: i is a function that takes no arguments and returns i.
+  
+General syntax:
+lambda <args>: <expression>
+
+Three parts: the keyword lambda, the arguments (before :), the expression to return (after :). Whatever
+the expression evaluates to, that's the return value.
+
+Examples:
+```
+f = lambda: 42              # no args, returns 42
+f()                         # 42
+
+g = lambda x: x + 1         # one arg
+g(5)                        # 6
+
+h = lambda x, y: x * y      # two args
+h(3, 4)                     # 12
+
+z = lambda x, y=10: x + y   # default value
+z(1)                        # 11
+```
+
 ## 8. No method overloading
 
 ```python
