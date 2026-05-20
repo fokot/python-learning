@@ -12,3 +12,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/python_learning"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.409",
+]

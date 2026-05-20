@@ -12,7 +12,7 @@ uv run python -m python_learning.file_update_test
 
 `uv run` auto-creates the venv and installs deps from `pyproject.toml`.
 
-### Other options
+### Other options for running
 
 ```bash
 # 1. Run the file directly — relative imports won't work
@@ -30,3 +30,9 @@ python-learning
 - #1 runs a script (no package context); #2 runs a module (full package context).
 - #3 makes it a real CLI command like `black` or `pytest`.
 - All three need a venv + deps installed manually (unlike `uv run`).
+
+### Type checking
+```bash
+uv run pyright src/
+```
+Also `mypy` is older alternative to `pyright`.
