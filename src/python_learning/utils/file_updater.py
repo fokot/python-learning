@@ -25,6 +25,18 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Generator, Self
 
+# Without @dataclass — manually written:
+# class FileNumber:
+#     def __init__(self, value):
+#         self.value = value
+
+#     def __repr__(self):
+#         return f"FileNumber(value={self.value!r})"
+
+#     def __eq__(self, other):
+#         if not isinstance(other, FileNumber):
+#             return NotImplemented
+#         return self.value == other.value
 @dataclass
 class FileNumber:
     value: int
