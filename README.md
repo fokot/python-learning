@@ -2,11 +2,11 @@
 
 ## Running
 
-```bash
+```
 uv run python -m python_learning.main
 ```
 Or other module
-```bash
+```
 uv run python -m python_learning.file_update_test
 ```
 
@@ -14,7 +14,7 @@ uv run python -m python_learning.file_update_test
 
 ### Other options for running
 
-```bash
+```
 # 1. Run the file directly — relative imports won't work
 python3 src/python_learning/main.py
 
@@ -31,8 +31,24 @@ python-learning
 - #3 makes it a real CLI command like `black` or `pytest`.
 - All three need a venv + deps installed manually (unlike `uv run`).
 
+### Adding dependencies
+```
+uv add <package>
+```
+or
+```
+uv add --dev <dev_package>
+```
+
 ### Type checking
-```bash
+```
 uv run pyright src/
 ```
 Also `mypy` is older alternative to `pyright`.
+
+### Linting
+```
+uv run ruff check src/         # lint
+uv run ruff check --fix src/   # lint + auto-fix
+uv run ruff format src/        # format (like black)
+```

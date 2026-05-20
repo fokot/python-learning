@@ -1,3 +1,8 @@
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Generator
+
+
 # updater = FileUpdater("notes.txt")  # ← __init__ runs here
 # with updater as f:                  # ← __enter__ runs here
 #     ...
@@ -21,9 +26,6 @@ class FileUpdater:
                 f.write(self.content)
         return False
 
-from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Generator, Self
 
 # Without @dataclass — manually written:
 # class FileNumber:
@@ -33,6 +35,7 @@ from typing import Generator, Self
 #     def __repr__(self):
 #         return f"FileNumber(value={self.value!r})"
 
+
 #     def __eq__(self, other):
 #         if not isinstance(other, FileNumber):
 #             return NotImplemented
@@ -40,6 +43,7 @@ from typing import Generator, Self
 @dataclass
 class FileNumber:
     value: int
+
 
 @contextmanager
 def file_number_updater(path: str) -> Generator[FileNumber, None, None]:

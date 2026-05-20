@@ -3,7 +3,8 @@ def main():
     append_to(1)
     append_to(2)
     x = append_to(3)
-    print(x) # [1, 2, 3]  ← !!!
+    print(x)  # [1, 2, 3]  ← !!!
+
 
 def append_to(item, lst=[]):
     lst.append(item)

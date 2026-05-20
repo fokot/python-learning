@@ -1,5 +1,6 @@
 from python_learning.utils.file_updater import FileUpdater, file_number_updater
 
+
 def main():
     print("Hello from python-learning!")
     with FileUpdater("test.txt") as f:
@@ -12,6 +13,7 @@ def main():
         print(f"Number is: {number.value}")
         number.value += 1
         print(f"New number: {number.value}")
+
 
 if __name__ == "__main__":
     main()
