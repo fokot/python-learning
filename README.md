@@ -5,6 +5,10 @@
 ```bash
 uv run python -m python_learning.main
 ```
+Or other module
+```bash
+uv run python -m python_learning.file_update_test
+```
 
 `uv run` auto-creates the venv and installs deps from `pyproject.toml`.
 

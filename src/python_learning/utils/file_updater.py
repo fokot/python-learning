@@ -8,8 +8,11 @@ class FileUpdater:
         self.content = ""
 
     def __enter__(self):
-        with open(self.path) as f:
-            self.content = f.read()
+        try:
+            with open(self.path) as f:
+                self.content = f.read()
+        except FileNotFoundError:
+            self.content = "0"
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -17,3 +20,22 @@ class FileUpdater:
             with open(self.path, "w") as f:
                 f.write(self.content)
         return False
+
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Generator, Self
+
+@dataclass
+class FileNumber:
+    value: int
+
+@contextmanager
+def file_number_updater(path: str) -> Generator[FileNumber, None, None]:
+    try:
+        with open(path) as f:
+            wrapper = FileNumber(int(f.read().strip()))
+    except FileNotFoundError:
+        wrapper = FileNumber(0)
+    yield wrapper
+    with open(path, "w") as f:
+        f.write(str(wrapper.value))
