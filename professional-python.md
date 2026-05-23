@@ -4,7 +4,12 @@ Coming from Scala, focus learning on these.
 
 ---
 
-## 1. Type hints + mypy strict mode
+## Pass vs. Ellipsis
+`pass` is a no-op statement.
+`...` is an expression evaluating to the `Ellipsis` singleton (not `None`) whose value is discarded when used as a statement.
+So both work as a function body but mean different things.
+
+## Type hints + mypy strict mode
 
 Python types are **not enforced at runtime** — mypy is your compiler. Configure it strict (see `mypy.ini`).
 
@@ -27,9 +32,9 @@ Gotchas:
 
 ---
 
-## 2. asyncio — async/await model
+## asyncio — async/await model
 
-Functions are **colored**: `async def` returns a coroutine; you must `await` it. Unlike Scala `Future`, nothing runs eagerly.
+Functions are **colored**: `async def` returns a coroutine; you must `await` it. Unlike Scala `Future`, nothing runs eagerly. A `Task` is "a coroutine scheduled on the event loop" — the eager wrapper around a lazy coroutine (`asyncio.create_task(coro)` or `asyncio.gather(...)`).
 
 ```python
 import asyncio
@@ -50,9 +55,24 @@ Key idioms in this repo: `asyncio.gather(..., return_exceptions=True)`,
 `@asynccontextmanager` for lifespans, `await websocket.receive_bytes()`.
 Don't call blocking I/O (`requests.get`) inside async code — it stalls the event loop. Use `httpx.AsyncClient`.
 
+**Concurrency, not parallelism.** One event loop, one thread — only one piece of Python code runs at a time (the GIL enforces this even with threads). `gather` keeps many awaits *in flight*; the actual parallelism happens at the OS/kernel level (sockets, disk). CPU-bound work blocks the loop. Escape hatches:
+
+| Need                                   | Tool                                                         |
+|----------------------------------------|--------------------------------------------------------------|
+| Run blocking I/O inside async code     | `await asyncio.to_thread(blocking_fn, args)`                 |
+| Many CPU-bound jobs                    | `multiprocessing` / `concurrent.futures.ProcessPoolExecutor` |
+| One CPU-bound job from async code      | `await loop.run_in_executor(ProcessPoolExecutor(), fn)`      |
+| Numerical code that releases the GIL   | numpy/torch on threads work fine, GIL drops in C-land        |
+
+For this codebase you're doing async I/O, so the GIL is a non-issue. Revisit only if you hit CPU-bound work. (Python 3.13+ has an experimental free-threaded build that removes the GIL; ignore until it's default.)
+
+### Internals (skip until you need them)
+
+Event loop policies, custom loops, `loop.call_soon`, `Future` vs `Task` vs coroutine distinctions, transports/protocols — interesting but unnecessary. FastAPI + `asyncio.run` + `gather` + `async with` cover ~all of what this repo does.
+
 ---
 
-## 3. Pydantic v2 (BaseModel, BaseSettings)
+## Pydantic v2 (BaseModel, BaseSettings)
 
 This is your case-class + JSON + validation layer. Used everywhere for config and DTOs.
 
@@ -76,10 +96,11 @@ block.model_dump()                    # to dict; .model_dump_json() to str
 ```
 
 Validation happens at construction, raising `ValidationError`. Pair with mypy via the `pydantic.mypy` plugin (already enabled).
+For more look into [settings folder](src/python_learning/settings/settings.py)
 
 ---
 
-## 4. FastAPI — routing + dependency injection
+## FastAPI — routing + dependency injection
 
 Type hints drive validation, parsing, and OpenAPI generation. Mental model: http4s + tapir squished into one, with decorators instead of DSL.
 
@@ -103,11 +124,11 @@ def current_user(token: str = Query("")) -> User: ...
 async def me(user: User = Depends(current_user)) -> User: return user
 ```
 
-Path params, query params, and body come from the type signature. Pydantic models in the signature → JSON body parsed + validated. See `audio-forwarder/src/audio_forwarder/server.py`.
+Path params, query params, and body come from the type signature. Pydantic models in the signature → JSON body parsed + validated.
 
 ---
 
-## 5. pytest + fixtures + pytest-asyncio
+## pytest + fixtures + pytest-asyncio
 
 Test discovery is convention-based: files `test_*.py`, functions `test_*`. No class hierarchy needed.
 
@@ -136,13 +157,22 @@ async def test_async_thing() -> None:
     assert result == "ok"
 ```
 
+### Timeouts for async tests
+```toml
+# Globally in pyproject.toml:
+[tool.pytest.ini_options]
+timeout = 10
+```
+```python
+# Annotation above individual test functions
+@pytest.mark.timeout(5)
+async def test_async_thing() -> None:
+# Or
+@pytest.mark.asyncio(timeout=5)
+async def test_async_thing() -> None:
+```
+
 Also used in this repo: `syrupy` for snapshot tests, `freezegun` to pin `datetime.now()`. Run via `uv run pytest -q`.
-
----
-
-# Skip for now
-
-These are real, but not on the critical path to being productive in this repo.
 
 ---
 
@@ -161,28 +191,27 @@ The protocol behind `@property`, `classmethod`, ORM fields, `Field(...)` etc. �
 You'll *use* properties constantly:
 ```python
 class C:
+    def __init__(self, name: str = "") -> None:
+        self._name = name
+    # This can be accessed as c.name (field) instead of c.name() (method)
     @property
     def name(self) -> str: return self._name
+
+    # This can be set as c.name = value (setter) instead of c.name(value) (method)
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
 ```
-…but you won't *write* descriptors until you're building a framework.
 
----
+### Cached properties
+```python
+from functools import cached_property
 
-## The GIL deep dive
-
-The Global Interpreter Lock means one thread executes Python bytecode at a time. Practical consequences:
-- CPU-bound parallelism → use `multiprocessing` or native extensions, not threads.
-- I/O-bound concurrency → `asyncio` (what this repo does) or threads both work.
-
-For this codebase you're doing async I/O, so the GIL is a non-issue. Revisit only if you hit CPU-bound work. (Python 3.13+ has an experimental free-threaded build; ignore until it's default.)
-
----
-
-## asyncio internals
-
-Event loop policies, custom loops, `loop.call_soon`, `Future` vs `Task` vs coroutine distinctions, transports/protocols — interesting but unnecessary. FastAPI + `asyncio.run` + `gather` + `async with` cover ~all of what this repo does.
-
-If you ever need to bridge sync and async, learn just two helpers: `asyncio.to_thread(fn, *args)` (run blocking code off the loop) and `loop.run_in_executor(...)` (the lower-level form). That's enough.
+class User:
+    @cached_property
+    def profile(self) -> Profile:
+        return load_from_db(self.id)   # runs once, then cached on the instance
+```
 
 ---
 
