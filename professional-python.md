@@ -1,0 +1,195 @@
+# Python for a Scala dev — starting points (job codebase)
+
+Coming from Scala, focus learning on these.
+
+---
+
+## 1. Type hints + mypy strict mode
+
+Python types are **not enforced at runtime** — mypy is your compiler. Configure it strict (see `mypy.ini`).
+
+Key syntax:
+```python
+x: int = 5
+xs: list[int] = [1, 2]          # PEP 585: builtin generics, no `List`
+m: dict[str, Any] = {}
+name: str | None = None         # PEP 604: this is your Option[String]
+from typing import Literal, Protocol, TypeVar, Generic
+
+T = TypeVar("T")
+class Box(Generic[T]):          # Scala: class Box[T]
+    def __init__(self, v: T) -> None: self.v = v
+```
+
+Gotchas:
+- Generics are **erased and nominal** — no HKT, no typeclasses, no implicits.
+- `Any` silently disables checking — avoid it; prefer `object` or proper unions.
+
+---
+
+## 2. asyncio — async/await model
+
+Functions are **colored**: `async def` returns a coroutine; you must `await` it. Unlike Scala `Future`, nothing runs eagerly.
+
+```python
+import asyncio
+
+async def fetch(url: str) -> str: ...
+
+async def main() -> None:
+    # Future.sequence equivalent:
+    results = await asyncio.gather(fetch("a"), fetch("b"))
+    # async resource:
+    async with open_conn() as c:
+        async for msg in c: ...
+
+asyncio.run(main())             # entry point
+```
+
+Key idioms in this repo: `asyncio.gather(..., return_exceptions=True)`,
+`@asynccontextmanager` for lifespans, `await websocket.receive_bytes()`.
+Don't call blocking I/O (`requests.get`) inside async code — it stalls the event loop. Use `httpx.AsyncClient`.
+
+---
+
+## 3. Pydantic v2 (BaseModel, BaseSettings)
+
+This is your case-class + JSON + validation layer. Used everywhere for config and DTOs.
+
+```python
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+
+class TranscriptBlock(BaseModel):     # like a Scala case class
+    text: str
+    speaker_id: int
+    confidence: float = Field(ge=0, le=1)
+
+class Settings(BaseSettings):         # reads from env vars automatically
+    log_level: str = "INFO"
+    aws_endpoint_url: str | None = None
+    fvid_required_scopes: list[str] = ["fv.transcript.ingest"]
+
+settings = Settings()                 # validates at construction
+block = TranscriptBlock.model_validate(json_dict)  # parse + validate
+block.model_dump()                    # to dict; .model_dump_json() to str
+```
+
+Validation happens at construction, raising `ValidationError`. Pair with mypy via the `pydantic.mypy` plugin (already enabled).
+
+---
+
+## 4. FastAPI — routing + dependency injection
+
+Type hints drive validation, parsing, and OpenAPI generation. Mental model: http4s + tapir squished into one, with decorators instead of DSL.
+
+```python
+from fastapi import FastAPI, Depends, Query, WebSocket
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+@app.websocket("/v1/ingest/{key}")
+async def ingest(ws: WebSocket, key: str, token: str = Query("")) -> None:
+    await ws.accept()
+    data = await ws.receive_bytes()
+
+# DI: anything you put in `Depends(...)` is resolved per-request
+def current_user(token: str = Query("")) -> User: ...
+@app.get("/me")
+async def me(user: User = Depends(current_user)) -> User: return user
+```
+
+Path params, query params, and body come from the type signature. Pydantic models in the signature → JSON body parsed + validated. See `audio-forwarder/src/audio_forwarder/server.py`.
+
+---
+
+## 5. pytest + fixtures + pytest-asyncio
+
+Test discovery is convention-based: files `test_*.py`, functions `test_*`. No class hierarchy needed.
+
+```python
+import pytest
+
+def test_adds() -> None:
+    assert 1 + 1 == 2
+
+# Fixture = setup helper, injected by name (DI by parameter name)
+@pytest.fixture
+def client() -> KinesisClient:
+    return KinesisClient("test-stream", "http://localhost:4566")
+
+def test_writes(client: KinesisClient) -> None:
+    client.put("hello")
+
+# Parametrize = table-driven tests
+@pytest.mark.parametrize("a,b,want", [(1,1,2), (2,3,5)])
+def test_sum(a: int, b: int, want: int) -> None:
+    assert a + b == want
+
+# Async tests (pytest-asyncio with asyncio_mode = "auto" in pyproject)
+async def test_async_thing() -> None:
+    result = await some_async()
+    assert result == "ok"
+```
+
+Also used in this repo: `syrupy` for snapshot tests, `freezegun` to pin `datetime.now()`. Run via `uv run pytest -q`.
+
+---
+
+# Skip for now
+
+These are real, but not on the critical path to being productive in this repo.
+
+---
+
+## Metaclasses
+
+`class Foo(metaclass=Meta)` lets a class customize how *other classes* are constructed. Pydantic and ORMs use them internally; you almost never write one.
+
+Closest Scala analog: macro-generated class members. If you're tempted to write one, you probably want a decorator or `__init_subclass__` instead.
+
+---
+
+## Descriptors
+
+The protocol behind `@property`, `classmethod`, ORM fields, `Field(...)` etc. — objects with `__get__`/`__set__`/`__delete__` that intercept attribute access on the owning class.
+
+You'll *use* properties constantly:
+```python
+class C:
+    @property
+    def name(self) -> str: return self._name
+```
+…but you won't *write* descriptors until you're building a framework.
+
+---
+
+## The GIL deep dive
+
+The Global Interpreter Lock means one thread executes Python bytecode at a time. Practical consequences:
+- CPU-bound parallelism → use `multiprocessing` or native extensions, not threads.
+- I/O-bound concurrency → `asyncio` (what this repo does) or threads both work.
+
+For this codebase you're doing async I/O, so the GIL is a non-issue. Revisit only if you hit CPU-bound work. (Python 3.13+ has an experimental free-threaded build; ignore until it's default.)
+
+---
+
+## asyncio internals
+
+Event loop policies, custom loops, `loop.call_soon`, `Future` vs `Task` vs coroutine distinctions, transports/protocols — interesting but unnecessary. FastAPI + `asyncio.run` + `gather` + `async with` cover ~all of what this repo does.
+
+If you ever need to bridge sync and async, learn just two helpers: `asyncio.to_thread(fn, *args)` (run blocking code off the loop) and `loop.run_in_executor(...)` (the lower-level form). That's enough.
+
+---
+
+## Other things to skip
+
+- **`__slots__`** — memory micro-optimization. Ignore unless profiling says so.
+- **Abstract Base Classes (`abc.ABC`)** — prefer `typing.Protocol` for structural typing; it's lighter and matches Scala's `trait` better mentally.
+- **`functools.singledispatch`** — Python's attempt at typeclass-ish dispatch; rarely worth it over plain `if isinstance`.
+- **C extensions / Cython / ctypes** — not in this repo's stack.
+- **`__new__`, `__init_subclass__`, `__set_name__`** — metaprogramming hooks; same reason as metaclasses.
