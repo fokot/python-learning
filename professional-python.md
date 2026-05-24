@@ -189,7 +189,11 @@ class TranscriptBlock(BaseModel):     # like a Scala case class
     text: str
     speaker_id: int
     confidence: float = Field(ge=0, le=1)
+```
 
+Example in [pydantic_basics.py](`src/python_learning/pydantic_basics.py`). Run it as `uv run python src/python_learning/pydantic_basics.py`.
+
+```python
 class Settings(BaseSettings):         # reads from env vars automatically
     log_level: str = "INFO"
     aws_endpoint_url: str | None = None

@@ -1,5 +1,7 @@
 # Python Learning
 
+To know more about `python`, syntax, runtime and ecosystem look in the [Professional Python](professional-python.md) guide.
+
 ## Running
 
 ```
