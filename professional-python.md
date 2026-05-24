@@ -33,6 +33,86 @@ In practice, use `uv` (this repo) / `poetry` / `pipenv` — they create and mana
 `...` is an expression evaluating to the `Ellipsis` singleton (not `None`) whose value is discarded when used as a statement.
 So both work as a function body but mean different things.
 
+---
+
+## Working with `None`
+
+`None` is Python's null — a singleton of type `NoneType`. There's only ever one `None`.
+
+**Non-null is the default in the type system:**
+```python
+x: int = 5           # cannot be None — mypy errors if you try
+y: int | None = 5    # explicitly nullable (your Option[Int])
+y = None             # ok
+```
+In mypy strict mode, if a variable isn't `| None`, it's guaranteed non-None.
+
+**Checking:**
+```python
+if x is None: ...        # idiomatic — use `is`, not `==`
+if x is not None: ...
+```
+After an `is None` check, mypy **narrows** the type — inside the `else` branch, `x: int`, not `int | None`. Same as Scala's flow typing.
+
+**JS-equivalent helpers:**
+
+| JS                | Python                                                      |
+|-------------------|-------------------------------------------------------------|
+| `x ?? default`    | `x if x is not None else default`                           |
+| `x \|\| default`  | `x or default` (also falsy on `0`/`""`/`[]`)                |
+| `obj?.prop`       | no operator — `obj.prop if obj is not None else None`       |
+| `obj?.method()`   | same — no `?.`                                              |
+| `a?.b?.c?.d`      | painful; restructure or early-return                        |
+
+No `?.` operator (a PEP for it was rejected). Workarounds:
+```python
+# Walrus + early return
+if (user := get_user()) is None:
+    return None
+return user.profile.name
+
+# getattr with default (attributes)
+name = getattr(user, "name", "unknown")
+
+# dict.get with default (mappings)
+port = config.get("port", 8080)
+```
+
+**Deep chains (`a?.b?.c?.d`)** — idiomatic Python is `try/except`. This is the "EAFP" style (Easier to Ask Forgiveness than Permission), not a hack:
+```python
+try:
+    value = a.b.c.d
+except AttributeError:
+    value = None
+```
+
+**No `.map` / `.flatMap` / `.getOrElse` on optionals.** The idioms:
+```python
+# .getOrElse
+value = maybe_value if maybe_value is not None else default
+
+# .map
+result = f(x) if x is not None else None
+
+# .flatMap chains — just use early returns
+def lookup(id: str) -> str | None:
+    user = get_user(id)
+    if user is None: return None
+    profile = user.profile
+    if profile is None: return None
+    return profile.name
+```
+
+**Gotcha:** `or` treats `0`, `""`, `[]`, `False` as falsy. If you only want to replace `None`, use `x if x is not None else default`, not `x or default`.
+
+**Asserting non-None** (when you know better than the checker):
+```python
+assert x is not None     # narrows for mypy, raises at runtime if wrong
+y: int = x               # now type-checks
+```
+
+---
+
 ## Type hints + mypy strict mode
 
 Python types are **not enforced at runtime** — mypy is your compiler. Configure it strict (see `mypy.ini`).
