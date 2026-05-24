@@ -21,8 +21,9 @@ m: dict[str, Any] = {}
 name: str | None = None         # PEP 604: this is your Option[String]
 from typing import Literal, Protocol, TypeVar, Generic
 
-T = TypeVar("T")
-class Box(Generic[T]):          # Scala: class Box[T]
+# Before Python 3.12 (October 2023), type variables were declared outside the generic class, as
+# T = TypeVar("T")
+class Box[T]:
     def __init__(self, v: T) -> None: self.v = v
 ```
 
