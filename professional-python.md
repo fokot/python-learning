@@ -4,6 +4,30 @@ Coming from Scala, focus learning on these.
 
 ---
 
+## Environments and virtual environments
+
+**Environment** = a Python interpreter + the packages installed against it. By default there's one global environment per Python install.
+
+**Virtual environment (venv)** = a project-local, isolated copy of that setup, usually in `.venv/`. The Scala analog is closer to sbt/mill resolving dependencies per project — except in Python, packages live in a folder you activate rather than a build-tool cache.
+
+Why they exist:
+- **Dependency conflicts** — Project A needs `requests==2.20`, Project B needs `requests==2.31`. No venvs → only one can win.
+- **Reproducibility** — `pip freeze > requirements.txt` (or `uv.lock`) captures exactly what's in *this* venv.
+- **System protection** — macOS/Linux ship a system Python the OS depends on; installing globally can break it. Modern Python often refuses global `pip install` for this reason.
+- **Cleanup** — delete `.venv/` and the project's deps are gone. No global leftover state.
+
+Manual workflow (rarely needed today):
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+deactivate
+```
+
+In practice, use `uv` (this repo) / `poetry` / `pipenv` — they create and manage the venv for you. `uv run pytest` runs inside the project's venv without manual activation.
+
+---
+
 ## Pass vs. Ellipsis
 `pass` is a no-op statement.
 `...` is an expression evaluating to the `Ellipsis` singleton (not `None`) whose value is discarded when used as a statement.
