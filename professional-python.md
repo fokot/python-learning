@@ -26,6 +26,26 @@ deactivate
 
 In practice, use `uv` (this repo) / `poetry` / `pipenv` — they create and manage the venv for you. `uv run pytest` runs inside the project's venv without manual activation.
 
+### What's inside `.venv/`
+
+A venv is just a directory. Three pieces matter:
+
+**1. `pyvenv.cfg`** — the marker file. When you run `.venv/bin/python`, Python reads this and learns where the base interpreter lives and whether to see global packages:
+```
+home = /opt/homebrew/opt/python@3.14/bin   ← real Python lives here
+include-system-site-packages = false        ← don't see global packages
+```
+
+**2. `bin/python`** — a symlink (or tiny launcher) to the system Python. The trick: it's the *path Python is invoked from* that makes it a "venv Python." Same binary, different `sys.prefix`. `bin/` also holds the activation scripts (`activate`, `activate.fish`, …) and entry scripts for installed tools (`ruff`, `pyright`, …). On Windows it's `Scripts/` instead of `bin/`.
+
+**3. `lib/python3.14/site-packages/`** — where `pip install` / `uv add` actually drops packages. Each venv has its own, which is the whole point: project A and project B can have different versions of `requests` without conflict.
+
+### What "activating" really does
+
+`source .venv/bin/activate` just prepends `.venv/bin/` to your `$PATH` and sets `$VIRTUAL_ENV`. That's it. After activation, typing `python` finds `.venv/bin/python` first, which then resolves its own `site-packages`.
+
+You can skip activation entirely by calling `.venv/bin/python` directly — same result. This is what `uv run` does under the hood.
+
 ---
 
 ## Pass vs. Ellipsis
