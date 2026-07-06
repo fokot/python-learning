@@ -133,6 +133,61 @@ y: int = x               # now type-checks
 
 ---
 
+## `*args` / `**kwargs` — packing and unpacking
+
+Two directions for the same `*`/`**` syntax: **packing** (in a function signature, collect extra args) and **unpacking** (at a call site, spread a sequence/dict into args).
+
+**Packing — in the signature:**
+```python
+def f(a, *args, **kwargs):
+    # args   -> tuple of extra POSITIONAL args      (like Scala varargs `a: Int*`)
+    # kwargs -> dict of extra KEYWORD args           (no clean Scala equivalent)
+    ...
+
+f(1, 2, 3, x=10, y=20)   # a=1, args=(2, 3), kwargs={"x": 10, "y": 20}
+```
+`*args` must come before `**kwargs`. A bare `*` marks everything after it **keyword-only** (you saw this on `pipeline.run(past, *, stream_id, ...)` — callers *must* name those args):
+```python
+def g(a, *, verbose=False): ...
+g(1, True)          # TypeError — verbose is keyword-only
+g(1, verbose=True)  # ok
+```
+
+**Unpacking — at the call site:** the mirror image. `*` spreads a sequence into positional args, `**` spreads a dict into keyword args:
+```python
+args = [1, 2]
+kw = {"x": 10, "y": 20}
+f(*args, **kw)            # == f(1, 2, x=10, y=20)
+```
+`**d` requires **string keys**; each becomes a parameter name. Passing a dict *without* `**` sends the dict itself as one positional value.
+
+**Why it's useful (real pattern):** build a kwargs dict conditionally, then unpack — you can include or omit an argument dynamically, which a fixed call can't:
+```python
+def client_kwargs(endpoint_url=None):
+    kwargs = {"region_name": "us-west-2"}
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url   # present only sometimes
+    return kwargs
+
+session.client("dynamodb", **client_kwargs(...))
+```
+Note: **omitting** a key is not the same as passing `endpoint_url=None` — the callee sees a missing argument (and uses its default) vs. an explicit `None` it must interpret.
+
+**Dict merge** uses the same `**`:
+```python
+merged = {**defaults, **overrides}   # later keys win
+```
+
+**Forwarding** — accept anything and pass it through untouched (common in decorators/wrappers):
+```python
+def wrap(*args, **kwargs):
+    return inner(*args, **kwargs)
+```
+
+Gotchas: `*args` is a `tuple`, `**kwargs` is a `dict` (fresh per call — no mutable-default trap). Type hints annotate the *element* type: `*args: int`, `**kwargs: str`.
+
+---
+
 ## Type hints + mypy strict mode
 
 Python types are **not enforced at runtime** — mypy is your compiler. Configure it strict (see `mypy.ini`).
