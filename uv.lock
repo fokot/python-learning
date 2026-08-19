@@ -119,6 +119,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "reactivex" },
 ]
 
 [package.dev-dependencies]
@@ -131,12 +132,25 @@ dev = [
 requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pydantic-settings", specifier = ">=2.14.1" },
+    { name = "reactivex", specifier = ">=5.1.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pyright", specifier = ">=1.1.409" },
     { name = "ruff", specifier = ">=0.15.13" },
+]
+
+[[package]]
+name = "reactivex"
+version = "5.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/c3/eeb429d774c135a8bebe2b8ac51f9639fde1953506f062b42b9ba6e44176/reactivex-5.1.0.tar.gz", hash = "sha256:b6b40269ebcbf24c53455c1b6790d682122cc8c01c907b8c8da47e2babb3b77e", size = 137788, upload-time = "2026-07-27T19:07:49.114Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e3/37/5b71117e68e5571c8c10942600eb02fb8c454c7347d08f8cddbdcde6ba6e/reactivex-5.1.0-py3-none-any.whl", hash = "sha256:8668c0a3c8ae8694f1180421b367489d35a8affa281a3605014bf54364eed3a0", size = 257317, upload-time = "2026-07-27T19:07:47.631Z" },
 ]
 
 [[package]]
